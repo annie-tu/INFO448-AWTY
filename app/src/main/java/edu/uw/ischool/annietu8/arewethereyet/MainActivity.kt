@@ -1,16 +1,16 @@
 package edu.uw.ischool.annietu8.arewethereyet
 
+import android.content.DialogInterface
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 
 class MainActivity : AppCompatActivity() {
     private lateinit var editTextMessage: EditText
@@ -31,26 +31,8 @@ class MainActivity : AppCompatActivity() {
         editTextPhoneNumber = findViewById(R.id.editTextPhoneNumber)
         editTextMinutes = findViewById(R.id.editTextMinutes)
         buttonStart = findViewById(R.id.buttonStart)
-
-        editTextMessage.addTextChangedListener(textWatcher)
-        editTextPhoneNumber.addTextChangedListener(textWatcher)
-        editTextMinutes.addTextChangedListener(textWatcher)
-
     }
-    private val textWatcher = object : TextWatcher {
-        override fun afterTextChanged(s: Editable?) {
-            val message = editTextMessage.text.toString()
-            val phoneNumber = editTextPhoneNumber.text.toString()
-            val minutes = editTextMinutes.text.toString()
 
-            buttonStart.isEnabled =
-                message.isNotEmpty() && phoneNumber.isNotEmpty() && isValidMinutes(minutes)
-        }
-
-        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-
-        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-    }
     private fun isValidMinutes(minutes: String): Boolean {
         return minutes.isNotEmpty() && minutes.toInt() > 0
     }
@@ -59,48 +41,58 @@ class MainActivity : AppCompatActivity() {
     fun onStartButtonClick(view: View) {
         if (!isServiceRunning) {
             startService()
-            buttonStart.text = "Stop"
         } else {
             stopService()
-            buttonStart.text = "Start"
         }
     }
 
 
-    private fun startService() {
-        if (isValidMinutes(editTextMinutes.text.toString())) {
-            // Get values from UI
-            phoneNumber = editTextPhoneNumber.text.toString()
-            message = editTextMessage.text.toString()
-            intervalMinutes = editTextMinutes.text.toString().toInt()
-
-            // Create a handler to send messages at regular intervals
-            messageHandler = Handler(Looper.getMainLooper())
-            messageHandler?.postDelayed(sendMessageRunnable, (intervalMinutes * 60 * 1000).toLong())
-
-            // Set the flag indicating the service is running
-            isServiceRunning = true
+    private fun startService(): Boolean {
+        if (!isValidMinutes(editTextMinutes.text.toString())) {
+            showInvalidValuesDialog()
+            return false
         }
+
+        phoneNumber = editTextPhoneNumber.text.toString()
+        message = editTextMessage.text.toString()
+        intervalMinutes = editTextMinutes.text.toString().toInt()
+
+        // Send messages at regular intervals
+        messageHandler = Handler(Looper.getMainLooper())
+        messageHandler?.postDelayed(sendMessageRunnable, (intervalMinutes * 60 * 1000).toLong())
+
+        isServiceRunning = true
+        buttonStart.text = "Stop"
+        return true
+    }
+
+    private fun showInvalidValuesDialog() {
+        // asked chatGPT how to set an alert dialog
+        val alertDialogBuilder = AlertDialog.Builder(this)
+        alertDialogBuilder.setTitle("Application Cannot Start")
+        alertDialogBuilder.setMessage("Please enter legitimate values.")
+        alertDialogBuilder.setPositiveButton("OK", DialogInterface.OnClickListener { _, _ ->
+            // dismiss the dialog
+        })
+        val alertDialog = alertDialogBuilder.create()
+        alertDialog.show()
     }
 
     private fun stopService() {
-        // Remove any pending callbacks from the handler
         messageHandler?.removeCallbacks(sendMessageRunnable)
-
-        // Set the flag indicating the service is stopped
         isServiceRunning = false
+        buttonStart.text = "Start"
     }
 
     private val sendMessageRunnable = object : Runnable {
         override fun run() {
-            // Log.i("MainActivity", "toasting message")
+            Log.i("MainActivity", "toasting message")
             Toast.makeText(
                 this@MainActivity,
-                "$phoneNumber: $message",
+                "Texting $phoneNumber: $message",
                 Toast.LENGTH_SHORT
             ).show()
 
-            // Schedule the next message
             messageHandler?.postDelayed(this, (intervalMinutes * 60 * 1000).toLong())
         }
     }
